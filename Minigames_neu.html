@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minigames</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --card: #1a1f36;
+    --card2: #232a4a;
+    --text: #eef0ff;
+    --muted: #9aa3c7;
+    --accent: #6c7bff;
+    --good: #3ddc97;
+    --bad: #ff5d73;
+    --warn: #ffc857;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at top, #1b2150 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header { text-align: center; padding: 28px 16px 8px; }
+  header h1 { margin: 0; font-size: 2rem; letter-spacing: .5px; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    padding: 16px;
+  }
+  nav button {
+    background: var(--card); color: var(--text); border: 1px solid transparent;
+    padding: 10px 16px; border-radius: 999px; cursor: pointer; font-size: 1rem;
+    transition: .15s;
+  }
+  nav button:hover { background: var(--card2); }
+  nav button.active { background: var(--accent); }
+  main { max-width: 560px; margin: 0 auto; padding: 0 16px 40px; }
+  .game {
+    display: none; background: var(--card); border-radius: 18px;
+    padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .game.active { display: block; }
+  .game h2 { margin: 0 0 4px; }
+  .game .desc { color: var(--muted); margin: 0 0 14px; font-size: .95rem; }
+  .bar { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: .95rem; flex-wrap: wrap; }
+  .bar b { color: var(--text); }
+  .btn {
+    background: var(--accent); color: #fff; border: 0; padding: 10px 18px;
+    border-radius: 10px; font-size: 1rem; cursor: pointer; transition: .15s;
+  }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.secondary { background: var(--card2); }
+  .center { text-align: center; }
+  .msg { min-height: 1.5em; margin: 10px 0; text-align: center; font-weight: 600; }
+
+  /* Snake */
+  #snakeCanvas { width: 100%; max-width: 400px; aspect-ratio: 1; display: block; margin: 0 auto; background: #0b0e1c; border-radius: 12px; touch-action: none; }
+  .dpad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); gap: 6px; justify-content: center; margin-top: 12px; }
+  .dpad button { background: var(--card2); color: var(--text); border: 0; border-radius: 12px; font-size: 1.4rem; cursor: pointer; }
+  .dpad button:active { background: var(--accent); }
+  .dpad .up { grid-column: 2; grid-row: 1; }
+  .dpad .left { grid-column: 1; grid-row: 2; }
+  .dpad .down { grid-column: 2; grid-row: 2; }
+  .dpad .right { grid-column: 3; grid-row: 2; }
+
+  /* Memory */
+  #memoryGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .mcard {
+    aspect-ratio: 1; perspective: 600px; cursor: pointer; border: 0; background: none; padding: 0;
+  }
+  .mcard .inner {
+    position: relative; width: 100%; height: 100%; transition: transform .4s; transform-style: preserve-3d;
+  }
+  .mcard.flipped .inner, .mcard.matched .inner { transform: rotateY(180deg); }
+  .mcard .face {
+    position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 2rem;
+  }
+  .mcard .front { background: var(--card2); color: var(--muted); }
+  .mcard .back { background: var(--accent); transform: rotateY(180deg); }
+  .mcard.matched .back { background: var(--good); }
+  #memoryGrid { gap: 10px; }
+  .mcard .face { font-size: var(--mfs, 2rem); }
+  .mset { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .mset label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .85rem; flex: 1; min-width: 140px; }
+  .mset select {
+    background: var(--bg); color: var(--text); border: 2px solid var(--card2);
+    border-radius: 10px; padding: 8px 10px; font-size: 1rem;
+  }
+  .mset select:focus { outline: none; border-color: var(--accent); }
+  .players { display: flex; gap: 10px; margin-bottom: 12px; }
+  .pl {
+    flex: 1; background: var(--card2); border: 2px solid transparent; border-radius: 12px;
+    padding: 8px; text-align: center; display: flex; flex-direction: column; gap: 2px; transition: .2s; opacity: .7;
+  }
+  .pl b { font-size: 1.6rem; }
+  .pl small { color: var(--muted); }
+  .pl.active { border-color: var(--accent); opacity: 1; background: #2d365f; }
+
+  /* Tic Tac Toe */
+  #tttGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 320px; margin: 0 auto; }
+  .tcell {
+    aspect-ratio: 1; background: var(--card2); border: 0; border-radius: 12px;
+    font-size: 2.6rem; font-weight: 700; color: var(--text); cursor: pointer; transition: .15s;
+  }
+  .tcell:hover:not(:disabled) { background: #2d365f; }
+  .tcell.x { color: var(--accent); }
+  .tcell.o { color: var(--warn); }
+  .tcell.win { background: var(--good); color: #0b0e1c; }
+
+  /* Reaction */
+  #reactBox {
+    height: 220px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 1.3rem; font-weight: 600; cursor: pointer; user-select: none;
+    background: var(--card2); transition: background .1s; padding: 12px;
+  }
+  #reactBox.wait { background: var(--bad); }
+  #reactBox.go { background: var(--good); color: #0b0e1c; }
+
+  /* Guess */
+  .guessRow { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+  .guessRow input {
+    width: 120px; font-size: 1.2rem; text-align: center; padding: 10px;
+    border-radius: 10px; border: 2px solid var(--card2); background: var(--bg); color: var(--text);
+  }
+  .guessRow input:focus { outline: none; border-color: var(--accent); }
+  #guessHistory { margin-top: 10px; color: var(--muted); text-align: center; font-size: .9rem; }
+
+  /* Spielstand */
+  .savebox { max-width: 560px; margin: 0 auto 40px; padding: 0 16px; }
+  .savebox .inner { background: var(--card); border-radius: 18px; padding: 18px 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .savebox h3 { margin: 0 0 4px; }
+  .savebox p { margin: 0 0 12px; color: var(--muted); font-size: .9rem; }
+  .savebox .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #saveText {
+    width: 100%; min-height: 110px; margin-top: 14px; padding: 10px; resize: vertical;
+    background: var(--bg); color: var(--text); border: 2px solid var(--card2); border-radius: 10px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem;
+  }
+  #saveText:focus { outline: none; border-color: var(--accent); }
+  #saveMsg { min-height: 1.4em; margin-top: 10px; font-weight: 600; font-size: .95rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎮 Minigames</h1>
+  <p>Wähle ein Spiel und stelle deinen Rekord auf!</p>
+</header>
+
+<nav id="tabs">
+  <button data-game="snake" class="active">🐍 Snake</button>
+  <button data-game="memory">🧠 Memory</button>
+  <button data-game="ttt">❌ Tic-Tac-Toe</button>
+  <button data-game="react">⚡ Reaktion</button>
+  <button data-game="guess">🔢 Zahlenraten</button>
+</nav>
+
+<main>
+
+  <!-- SNAKE -->
+  <section class="game active" id="game-snake">
+    <h2>Snake</h2>
+    <p class="desc">Steuerung mit Pfeiltasten, WASD, Wischen oder den Buttons. Friss das Futter, weiche Wänden und dir selbst aus.</p>
+    <div class="bar"><span>Punkte: <b id="snakeScore">0</b></span><span>Rekord: <b id="snakeBest">0</b></span></div>
+    <canvas id="snakeCanvas" width="400" height="400"></canvas>
+    <div class="dpad">
+      <button class="up" data-dir="up">▲</button>
+      <button class="left" data-dir="left">◀</button>
+      <button class="down" data-dir="down">▼</button>
+      <button class="right" data-dir="right">▶</button>
+    </div>
+    <div class="msg" id="snakeMsg"></div>
+    <div class="center"><button class="btn" id="snakeStart">Start</button></div>
+  </section>
+
+  <!-- MEMORY -->
+  <section class="game" id="game-memory">
+    <h2>Memory</h2>
+    <p class="desc">Finde alle Paare. Allein mit möglichst wenigen Zügen oder zu zweit auf einem Gerät: Wer ein Paar findet, darf nochmal.</p>
+    <div class="mset">
+      <label>Modus
+        <select id="memMode">
+          <option value="1">1 Spieler</option>
+          <option value="2">2 Spieler</option>
+        </select>
+      </label>
+      <label>Feldgröße
+        <select id="memSize">
+          <option value="4x3">4 × 3 (6 Paare)</option>
+          <option value="4x4" selected>4 × 4 (8 Paare)</option>
+          <option value="5x4">5 × 4 (10 Paare)</option>
+          <option value="6x5">6 × 5 (15 Paare)</option>
+          <option value="6x6">6 × 6 (18 Paare)</option>
+        </select>
+      </label>
+    </div>
+    <div class="bar" id="memBar1"><span>Züge: <b id="memMoves">0</b></span><span>Paare: <b id="memPairs">0</b></span><span>Rekord: <b id="memBest">–</b></span></div>
+    <div class="players" id="memBar2" style="display:none">
+      <div class="pl" id="memP0"><span>Spieler 1</span><b id="memS0">0</b><small>Punkte</small></div>
+      <div class="pl" id="memP1"><span>Spieler 2</span><b id="memS1">0</b><small>Punkte</small></div>
+    </div>
+    <div id="memoryGrid"></div>
+    <div class="msg" id="memMsg"></div>
+    <div class="center"><button class="btn" id="memReset">Neues Spiel</button></div>
+  </section>
+
+  <!-- TIC TAC TOE -->
+  <section class="game" id="game-ttt">
+    <h2>Tic-Tac-Toe</h2>
+    <p class="desc">Du bist ❌ und beginnst. Der Computer spielt ⭕ und ist ziemlich clever.</p>
+    <div class="bar"><span>Siege: <b id="tttWins">0</b></span><span>Unentschieden: <b id="tttDraws">0</b></span><span>Niederlagen: <b id="tttLosses">0</b></span></div>
+    <div id="tttGrid"></div>
+    <div class="msg" id="tttMsg"></div>
+    <div class="center"><button class="btn" id="tttReset">Neue Runde</button></div>
+  </section>
+
+  <!-- REACTION -->
+  <section class="game" id="game-react">
+    <h2>Reaktionstest</h2>
+    <p class="desc">Klicke in die Fläche, sobald sie grün wird. Nicht zu früh!</p>
+    <div class="bar"><span>Letzte: <b id="reactLast">–</b></span><span>Bestzeit: <b id="reactBest">–</b></span></div>
+    <div id="reactBox">Klicken zum Starten</div>
+  </section>
+
+  <!-- GUESS -->
+  <section class="game" id="game-guess">
+    <h2>Zahlenraten</h2>
+    <p class="desc">Ich denke mir eine Zahl zwischen 1 und 100. Errate sie mit möglichst wenigen Versuchen.</p>
+    <div class="bar"><span>Versuche: <b id="guessTries">0</b></span><span>Rekord: <b id="guessBest">–</b></span></div>
+    <div class="guessRow">
+      <input type="number" id="guessInput" min="1" max="100" placeholder="1–100">
+      <button class="btn" id="guessBtn">Raten</button>
+    </div>
+    <div class="msg" id="guessMsg"></div>
+    <div id="guessHistory"></div>
+    <div class="center" style="margin-top:12px"><button class="btn secondary" id="guessReset">Neue Zahl</button></div>
+  </section>
+
+</main>
+
+<div class="savebox">
+  <div class="inner">
+    <h3>💾 Spielstand</h3>
+    <p>Exportiere alle Rekorde und Statistiken als Datei und importiere sie auf einem anderen Gerät oder Browser wieder.</p>
+    <div class="row">
+      <button class="btn" id="saveExport">⬇️ Exportieren</button>
+      <button class="btn secondary" id="saveImport">⬆️ Importieren</button>
+    </div>
+    <input type="file" id="saveFile" accept=".json,application/json" hidden>
+    <textarea id="saveText" placeholder="Oder hier den Inhalt der Spielstand-Datei einfügen …" spellcheck="false"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn secondary" id="saveImportText">📋 Aus Text importieren</button>
+    </div>
+    <div id="saveMsg"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Hilfsfunktionen ---------- */
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('mg_' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('mg_' + k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('#tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.game').forEach(g => g.classList.remove('active'));
+    btn.classList.add('active');
+    $('#game-' + btn.dataset.game).classList.add('active');
+    if (btn.dataset.game !== 'snake') snake.pause();
+  });
+});
+
+/* =========================================================
+   SNAKE
+   ========================================================= */
+const snake = (() => {
+  const canvas = $('#snakeCanvas'), ctx = canvas.getContext('2d');
+  const N = 20, S = canvas.width / N;
+  let body, dir, nextDir, food, score, timer, running = false;
+  let best = store.get('snakeBest', 0);
+  $('#snakeBest').textContent = best;
+
+  function reset() {
+    body = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+    dir = {x: 1, y: 0}; nextDir = dir; score = 0;
+    $('#snakeScore').textContent = 0;
+    placeFood(); draw();
+  }
+  function placeFood() {
+    do { food = {x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N)}; }
+    while (body.some(p => p.x === food.x && p.y === food.y));
+  }
+  function setDir(d) {
+    const map = {up: [0,-1], down: [0,1], left: [-1,0], right: [1,0]};
+    const [x, y] = map[d];
+    if (x === -dir.x && y === -dir.y) return;
+    nextDir = {x, y};
+  }
+  function tick() {
+    dir = nextDir;
+    const head = {x: body[0].x + dir.x, y: body[0].y + dir.y};
+    const hitWall = head.x < 0 || head.y < 0 || head.x >= N || head.y >= N;
+    const hitSelf = body.some(p => p.x === head.x && p.y === head.y);
+    if (hitWall || hitSelf) return gameOver();
+    body.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score++; $('#snakeScore').textContent = score; placeFood();
+      if (score > best) { best = score; store.set('snakeBest', best); $('#snakeBest').textContent = best; }
+    } else body.pop();
+    draw();
+  }
+  function draw() {
+    ctx.fillStyle = '#0b0e1c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ff5d73';
+    ctx.beginPath(); ctx.arc(food.x * S + S/2, food.y * S + S/2, S/2 - 3, 0, Math.PI * 2); ctx.fill();
+    body.forEach((p, i) => {
+      ctx.fillStyle = i === 0 ? '#3ddc97' : '#2bb57a';
+      ctx.fillRect(p.x * S + 1, p.y * S + 1, S - 2, S - 2);
+    });
+  }
+  function start() {
+    clearInterval(timer); reset(); running = true;
+    $('#snakeMsg').textContent = ''; $('#snakeStart').textContent = 'Neustart';
+    timer = setInterval(tick, 110);
+  }
+  function pause() { if (running) { clearInterval(timer); running = false; $('#snakeMsg').textContent = 'Pausiert – Start drücken.'; } }
+  function gameOver() {
+    clearInterval(timer); running = false;
+    $('#snakeMsg').textContent = `Game Over! Punkte: ${score}`;
+    $('#snakeMsg').style.color = 'var(--bad)';
+    $('#snakeStart').textContent = 'Nochmal';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!$('#game-snake').classList.contains('active')) return;
+    const k = {ArrowUp:'up', w:'up', W:'up', ArrowDown:'down', s:'down', S:'down', ArrowLeft:'left', a:'left', A:'left', ArrowRight:'right', d:'right', D:'right'}[e.key];
+    if (k) { e.preventDefault(); if (!running) return; setDir(k); }
+  });
+  document.querySelectorAll('.dpad button').forEach(b => b.addEventListener('click', () => running && setDir(b.dataset.dir)));
+  let tx, ty;
+  canvas.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive: true});
+  canvas.addEventListener('touchend', e => {
+    if (!running) return;
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+  $('#snakeStart').addEventListener('click', start);
+  reset();
+  return { pause };
+})();
+
+/* =========================================================
+   MEMORY
+   ========================================================= */
+(() => {
+  const EMOJIS = ['🍎','🚀','🐱','🎸','⚽','🌈','🍕','👾','🐼','🍩','🎲','🌵','🦊','🎈','🍉','🐙','⭐','🎧'];
+  const grid = $('#memoryGrid');
+  let first = null, lock = false, moves = 0, pairs = 0, totalPairs = 0;
+  let mode = 1, current = 0, scores = [0, 0];
+
+  function getBest() {
+    let b = store.get('memBest', {});
+    if (typeof b === 'number') b = { '4x4': b };
+    return (b && typeof b === 'object') ? b : {};
+  }
+  function showBest() {
+    const v = getBest()[$('#memSize').value];
+    $('#memBest').textContent = v ? v : '–';
+  }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function update() {
+    $('#memMoves').textContent = moves;
+    $('#memPairs').textContent = `${pairs}/${totalPairs}`;
+    $('#memS0').textContent = scores[0];
+    $('#memS1').textContent = scores[1];
+    $('#memP0').classList.toggle('active', mode === 2 && current === 0 && pairs < totalPairs);
+    $('#memP1').classList.toggle('active', mode === 2 && current === 1 && pairs < totalPairs);
+    if (mode === 2 && pairs < totalPairs) {
+      $('#memMsg').style.color = 'var(--accent)';
+      $('#memMsg').textContent = `Spieler ${current + 1} ist am Zug`;
+    }
+  }
+
+  function init() {
+    mode = parseInt($('#memMode').value, 10);
+    const [cols, rows] = $('#memSize').value.split('x').map(Number);
+    totalPairs = (cols * rows) / 2;
+    first = null; lock = false; moves = 0; pairs = 0; current = 0; scores = [0, 0];
+    $('#memBar1').style.display = mode === 1 ? '' : 'none';
+    $('#memBar2').style.display = mode === 2 ? 'flex' : 'none';
+    $('#memMsg').textContent = '';
+    showBest();
+    grid.innerHTML = '';
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.style.gap = cols >= 6 ? '6px' : '10px';
+    grid.style.setProperty('--mfs', cols <= 4 ? '2rem' : cols === 5 ? '1.7rem' : '1.3rem');
+    shuffle([...EMOJIS.slice(0, totalPairs), ...EMOJIS.slice(0, totalPairs)]).forEach(e => {
+      const c = document.createElement('button');
+      c.className = 'mcard'; c.dataset.e = e;
+      c.innerHTML = `<div class="inner"><div class="face front">?</div><div class="face back">${e}</div></div>`;
+      c.addEventListener('click', () => flip(c));
+      grid.appendChild(c);
+    });
+    update();
+  }
+
+  function flip(c) {
+    if (lock || c.classList.contains('flipped') || c.classList.contains('matched')) return;
+    c.classList.add('flipped');
+    if (!first) { first = c; return; }
+    moves++;
+    const a = first; first = null;
+    if (a.dataset.e === c.dataset.e) {
+      a.classList.add('matched'); c.classList.add('matched');
+      a.classList.remove('flipped'); c.classList.remove('flipped');
+      pairs++;
+      if (mode === 2) scores[current]++;
+      update();
+      if (pairs === totalPairs) finish();
+    } else {
+      lock = true;
+      update();
+      setTimeout(() => {
+        a.classList.remove('flipped'); c.classList.remove('flipped');
+        if (mode === 2) current = 1 - current;
+        lock = false; update();
+      }, 900);
+    }
+  }
+
+  function finish() {
+    const m = $('#memMsg');
+    if (mode === 2) {
+      if (scores[0] === scores[1]) { m.style.color = 'var(--warn)'; m.textContent = `🤝 Unentschieden (${scores[0]} : ${scores[1]})`; }
+      else { const w = scores[0] > scores[1] ? 1 : 2; m.style.color = 'var(--good)'; m.textContent = `🎉 Spieler ${w} gewinnt mit ${Math.max(...scores)} : ${Math.min(...scores)}!`; }
+      return;
+    }
+    m.style.color = 'var(--good)';
+    m.textContent = `🎉 Geschafft in ${moves} Zügen!`;
+    const best = getBest(), key = $('#memSize').value;
+    if (!best[key] || moves < best[key]) {
+      best[key] = moves; store.set('memBest', best); showBest();
+      m.textContent += ' Neuer Rekord!';
+    }
+  }
+
+  $('#memReset').addEventListener('click', init);
+  $('#memMode').addEventListener('change', init);
+  $('#memSize').addEventListener('change', init);
+  init();
+})();
+
+/* =========================================================
+   TIC TAC TOE
+   ========================================================= */
+(() => {
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  let board, over;
+  const stats = store.get('tttStats', {w: 0, d: 0, l: 0});
+  const grid = $('#tttGrid');
+
+  function showStats() { $('#tttWins').textContent = stats.w; $('#tttDraws').textContent = stats.d; $('#tttLosses').textContent = stats.l; store.set('tttStats', stats); }
+  function winner(b) {
+    for (const l of LINES) if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return {p: b[l[0]], line: l};
+    return null;
+  }
+  function minimax(b, isAI, depth) {
+    const w = winner(b);
+    if (w) return w.p === 'O' ? 10 - depth : depth - 10;
+    if (b.every(Boolean)) return 0;
+    let best = isAI ? -Infinity : Infinity;
+    for (let i = 0; i < 9; i++) if (!b[i]) {
+      b[i] = isAI ? 'O' : 'X';
+      const s = minimax(b, !isAI, depth + 1);
+      b[i] = null;
+      best = isAI ? Math.max(best, s) : Math.min(best, s);
+    }
+    return best;
+  }
+  function aiMove() {
+    // Kleine Fehlerquote, damit der Computer nicht unschlagbar ist
+    const free = board.map((v, i) => v ? null : i).filter(v => v !== null);
+    if (Math.random() < 0.12) return free[Math.floor(Math.random() * free.length)];
+    let bestS = -Infinity, bestI = free[0];
+    for (const i of free) {
+      board[i] = 'O';
+      const s = minimax(board, false, 1);
+      board[i] = null;
+      if (s > bestS) { bestS = s; bestI = i; }
+    }
+    return bestI;
+  }
+  function render() {
+    const w = winner(board);
+    [...grid.children].forEach((c, i) => {
+      c.textContent = board[i] === 'X' ? '❌' : board[i] === 'O' ? '⭕' : '';
+      c.className = 'tcell' + (board[i] ? ' ' + board[i].toLowerCase() : '');
+      c.disabled = over || !!board[i];
+      if (w && w.line.includes(i)) c.classList.add('win');
+    });
+  }
+  function checkEnd() {
+    const w = winner(board), m = $('#tttMsg');
+    if (w) {
+      over = true;
+      if (w.p === 'X') { stats.w++; m.textContent = '🎉 Du hast gewonnen!'; m.style.color = 'var(--good)'; }
+      else { stats.l++; m.textContent = '🤖 Der Computer gewinnt.'; m.style.color = 'var(--bad)'; }
+    } else if (board.every(Boolean)) {
+      over = true; stats.d++; m.textContent = 'Unentschieden.'; m.style.color = 'var(--warn)';
+    }
+    showStats(); render();
+    return over;
+  }
+  function play(i) {
+    if (over || board[i]) return;
+    board[i] = 'X';
+    if (checkEnd()) return;
+    board[aiMove()] = 'O';
+    checkEnd(); render();
+  }
+  function init() {
+    board = Array(9).fill(null); over = false; $('#tttMsg').textContent = '';
+    grid.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('button');
+      c.addEventListener('click', () => play(i));
+      grid.appendChild(c);
+    }
+    render();
+  }
+  $('#tttReset').addEventListener('click', init);
+  showStats(); init();
+})();
+
+/* =========================================================
+   REAKTIONSTEST
+   ========================================================= */
+(() => {
+  const box = $('#reactBox');
+  let state = 'idle', timeout, startTime;
+  let best = store.get('reactBest', null);
+  if (best) $('#reactBest').textContent = best + ' ms';
+
+  box.addEventListener('click', () => {
+    if (state === 'idle') {
+      state = 'wait'; box.className = 'wait'; box.id = 'reactBox'; box.classList.add('wait');
+      box.textContent = 'Warte auf Grün …';
+      timeout = setTimeout(() => {
+        state = 'go'; box.classList.remove('wait'); box.classList.add('go');
+        box.textContent = 'JETZT KLICKEN!'; startTime = performance.now();
+      }, 1000 + Math.random() * 3000);
+    } else if (state === 'wait') {
+      clearTimeout(timeout); state = 'idle'; box.classList.remove('wait');
+      box.textContent = 'Zu früh! Klicken zum Neustart.';
+    } else if (state === 'go') {
+      const t = Math.round(performance.now() - startTime);
+      state = 'idle'; box.classList.remove('go');
+      $('#reactLast').textContent = t + ' ms';
+      let txt = `${t} ms – klicken zum Neustart`;
+      if (!best || t < best) { best = t; store.set('reactBest', best); $('#reactBest').textContent = t + ' ms'; txt = `🏆 Neue Bestzeit: ${t} ms!`; }
+      box.textContent = txt;
+    }
+  });
+})();
+
+/* =========================================================
+   ZAHLENRATEN
+   ========================================================= */
+(() => {
+  let secret, tries, done, history;
+  let best = store.get('guessBest', null);
+  if (best) $('#guessBest').textContent = best;
+
+  function init() {
+    secret = Math.floor(Math.random() * 100) + 1; tries = 0; done = false; history = [];
+    $('#guessTries').textContent = 0; $('#guessMsg').textContent = ''; $('#guessHistory').textContent = '';
+    $('#guessInput').value = ''; $('#guessInput').disabled = false; $('#guessInput').focus();
+  }
+  function guess() {
+    if (done) return;
+    const v = parseInt($('#guessInput').value, 10), m = $('#guessMsg');
+    if (isNaN(v) || v < 1 || v > 100) { m.textContent = 'Bitte eine Zahl von 1 bis 100 eingeben.'; m.style.color = 'var(--warn)'; return; }
+    tries++; $('#guessTries').textContent = tries;
+    if (v === secret) {
+      done = true; m.style.color = 'var(--good)'; m.textContent = `🎉 Richtig! ${secret} in ${tries} Versuchen.`;
+      if (!best || tries < best) { best = tries; store.set('guessBest', best); $('#guessBest').textContent = best; m.textContent += ' Neuer Rekord!'; }
+    } else {
+      m.style.color = 'var(--accent)';
+      m.textContent = v < secret ? '⬆️ Zu niedrig – höher!' : '⬇️ Zu hoch – niedriger!';
+      history.push(v); $('#guessHistory').textContent = 'Bisher: ' + history.join(', ');
+    }
+    $('#guessInput').value = ''; $('#guessInput').focus();
+  }
+  $('#guessBtn').addEventListener('click', guess);
+  $('#guessInput').addEventListener('keydown', e => { if (e.key === 'Enter') guess(); });
+  $('#guessReset').addEventListener('click', init);
+  init();
+})();
+
+/* =========================================================
+   SPIELSTAND EXPORT / IMPORT
+   ========================================================= */
+(() => {
+  const KEYS = ['snakeBest', 'memBest', 'tttStats', 'reactBest', 'guessBest'];
+  const msg = $('#saveMsg');
+  const say = (t, c) => { msg.textContent = t; msg.style.color = c; };
+
+  $('#saveExport').addEventListener('click', () => {
+    const data = {};
+    KEYS.forEach(k => { const v = store.get(k, null); if (v !== null) data[k] = v; });
+    const payload = { app: 'minigames', version: 1, exportedAt: new Date().toISOString(), data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `minigames-spielstand-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    say('Spielstand wurde heruntergeladen.', 'var(--good)');
+  });
+
+  $('#saveImport').addEventListener('click', () => $('#saveFile').click());
+
+  function importText(text) {
+    try {
+      const p = JSON.parse(text);
+      if (!p || p.app !== 'minigames' || !p.data || typeof p.data !== 'object') throw new Error('Ungültig');
+      let n = 0;
+      KEYS.forEach(k => { if (k in p.data) { store.set(k, p.data[k]); n++; } });
+      say(`${n} Einträge importiert. Seite wird neu geladen …`, 'var(--good)');
+      setTimeout(() => location.reload(), 900);
+    } catch {
+      say('Das ist kein gültiger Spielstand.', 'var(--bad)');
+    }
+  }
+
+  $('#saveFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => importText(reader.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  $('#saveImportText').addEventListener('click', () => {
+    const t = $('#saveText').value.trim();
+    if (!t) return say('Bitte zuerst den Spielstand-Text einfügen.', 'var(--warn)');
+    importText(t);
+  });
+})();
+</script>
+</body>
+</html>
